@@ -12,7 +12,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const url = formData.get('url') as string;
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
-    const image = formData.get('image') as File | null;
+    const media = formData.get('media') as File | null;
 
     const accessToken = process.env.LINKEDIN_ACCESS_TOKEN;
     const personId = process.env.LINKEDIN_PERSON_ID;
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     let mediaAsset;
-    if (shareType === 'IMAGE' && image) {
+    if ((shareType === 'IMAGE' || shareType === 'VIDEO') && media) {
       // Register upload
       const registerResponse = await fetch(LINKEDIN_ASSET_URL, {
         method: 'POST',
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         },
         body: JSON.stringify({
           registerUploadRequest: {
-            recipes: ['urn:li:digitalmediaRecipe:feedshare-image'],
+            recipes: [`urn:li:digitalmediaRecipe:feedshare-${shareType.toLowerCase()}`],
             owner: `urn:li:person:${personId}`,
             serviceRelationships: [{
               relationshipType: 'OWNER',
@@ -44,22 +44,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
 
       if (!registerResponse.ok) {
-        return NextResponse.json({ error: 'Failed to register image upload' }, { status: registerResponse.status });
+        return NextResponse.json({ error: 'Failed to register media upload' }, { status: registerResponse.status });
       }
 
       const { value: { asset, uploadMechanism } } = await registerResponse.json();
       
-      // Upload image
+      // Upload media
       const uploadResponse = await fetch(uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
-        body: image,
+        body: media,
       });
 
       if (!uploadResponse.ok) {
-        return NextResponse.json({ error: 'Failed to upload image' }, { status: uploadResponse.status });
+        return NextResponse.json({ error: 'Failed to upload media' }, { status: uploadResponse.status });
       }
 
       mediaAsset = asset;
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           shareCommentary: {
             text: text
           },
-          shareMediaCategory: shareType === 'ARTICLE' ? 'ARTICLE' : shareType === 'IMAGE' ? 'IMAGE' : 'NONE',
+          shareMediaCategory: shareType === 'ARTICLE' ? 'ARTICLE' : shareType === 'IMAGE' ? 'IMAGE' : shareType === 'VIDEO' ? 'VIDEO' : 'NONE',
         }
       },
       visibility: {
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         title: { text: title },
         description: { text: description },
       }];
-    } else if (shareType === 'IMAGE' && mediaAsset) {
+    } else if ((shareType === 'IMAGE' || shareType === 'VIDEO') && mediaAsset) {
       shareData.specificContent['com.linkedin.ugc.ShareContent'].media = [{
         status: 'READY',
         media: mediaAsset,

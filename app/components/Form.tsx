@@ -1,15 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { AlertCircle, Camera, Link as LinkIcon, Video, MoreHorizontal, Loader2 } from 'lucide-react'
+import { AlertCircle, Camera, Link as LinkIcon, Video, MoreHorizontal, Loader2, X } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Dialog,
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { useChat } from 'ai/react'
 import ReactMarkdown from 'react-markdown'
+import { useTheme } from 'next-themes'
 
 type ShareType = 'TEXT' | 'ARTICLE' | 'IMAGE' | 'VIDEO'
 
@@ -30,16 +31,26 @@ export default function LinkedInShareForm() {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [media, setMedia] = useState<File | null>(null)
+  const [media, setMedia] = useState<File[]>([])
   const [isSharing, setIsSharing] = useState(false)
   const [message, setMessage] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [currentField, setCurrentField] = useState('')
   const [isRewriting, setIsRewriting] = useState(false)
+  const { theme, setTheme } = useTheme()
 
   const { messages, input, handleInputChange, handleSubmit: handleChatSubmit } = useChat({
     api: '/api/chat',
   })
+
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage('')
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [message])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,8 +65,10 @@ export default function LinkedInShareForm() {
       formData.append('url', url)
       formData.append('title', title)
       formData.append('description', description)
-    } else if ((shareType === 'IMAGE' || shareType === 'VIDEO') && media) {
-      formData.append('media', media)
+    } else if ((shareType === 'IMAGE' || shareType === 'VIDEO') && media.length > 0) {
+      media.forEach((file, index) => {
+        formData.append(`media${index}`, file)
+      })
       formData.append('title', title)
       formData.append('description', description)
     }
@@ -74,7 +87,7 @@ export default function LinkedInShareForm() {
         setUrl('')
         setTitle('')
         setDescription('')
-        setMedia(null)
+        setMedia([])
       } else {
         setMessage(`Error: ${data.error}`)
       }
@@ -86,10 +99,24 @@ export default function LinkedInShareForm() {
   }
 
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setMedia(file)
-    }
+    const files = Array.from(e.target.files || [])
+    setMedia(prevMedia => [...prevMedia, ...files])
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const files = Array.from(e.dataTransfer.files)
+    setMedia(prevMedia => [...prevMedia, ...files])
+  }
+
+  const removeMedia = (index: number) => {
+    setMedia(prevMedia => prevMedia.filter((_, i) => i !== index))
   }
 
   const handleAIRewrite = async (fieldType: string, content: string) => {
@@ -120,10 +147,17 @@ export default function LinkedInShareForm() {
   }
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold">Share on LinkedIn</CardTitle>
+    <div className={`flex justify-center items-center min-h-screen p-4 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}`}>
+      <Card className={`w-full max-w-2xl ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white'}`}>
+        <CardHeader className="flex flex-row justify-between items-center">
+          <CardTitle className="text-2xl font-bold">Share on LinkedIn</CardTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          >
+            {theme === 'dark' ? '🌞' : '🌙'}
+          </Button>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent>
@@ -148,7 +182,7 @@ export default function LinkedInShareForm() {
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     required
-                    className="pr-10 min-h-[100px]"
+                    className={`pr-10 min-h-[100px] ${theme === 'dark' ? 'bg-gray-700 text-white' : ''}`}
                   />
                   <Button
                     type="button"
@@ -174,7 +208,7 @@ export default function LinkedInShareForm() {
                         value={url}
                         onChange={(e) => setUrl(e.target.value)}
                         required
-                        className="pl-10"
+                        className={`pl-10 ${theme === 'dark' ? 'bg-gray-700 text-white' : ''}`}
                       />
                       <LinkIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                     </div>
@@ -187,6 +221,7 @@ export default function LinkedInShareForm() {
                         placeholder="Enter a catchy and informative title"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
+                        className={theme === 'dark' ? 'bg-gray-700 text-white' : ''}
                       />
                       <Button
                         type="button"
@@ -208,7 +243,7 @@ export default function LinkedInShareForm() {
                         placeholder="Write a compelling description to encourage clicks"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="pr-10 min-h-[80px]"
+                        className={`pr-10 min-h-[80px] ${theme === 'dark' ? 'bg-gray-700 text-white' : ''}`}
                       />
                       <Button
                         type="button"
@@ -227,20 +262,42 @@ export default function LinkedInShareForm() {
               {(shareType === 'IMAGE' || shareType === 'VIDEO') && (
                 <>
                   <div className="flex flex-col space-y-1.5">
-                    <Label htmlFor="media" className="text-lg font-semibold">Upload {shareType === 'IMAGE' ? 'Image' : 'Video'}</Label>
-                    <div className="flex items-center space-x-2">
+                    <Label htmlFor="media" className="text-lg font-semibold">Upload {shareType === 'IMAGE' ? 'Images' : 'Videos'}</Label>
+                    <div
+                      className={`border-2 border-dashed rounded-md p-4 ${theme === 'dark' ? 'border-gray-600' : 'border-gray-300'}`}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                    >
                       <Input
                         id="media"
                         type="file"
                         accept={shareType === 'IMAGE' ? "image/*" : "video/*"}
                         onChange={handleMediaUpload}
                         className="hidden"
+                        multiple
                       />
-                      <Label htmlFor="media" className="cursor-pointer flex items-center space-x-2 p-2 border rounded hover:bg-gray-100 transition-colors">
-                        {shareType === 'IMAGE' ? <Camera className="w-6 h-6" /> : <Video className="w-6 h-6" />}
-                        <span>{media ? media.name : `Select ${shareType === 'IMAGE' ? 'an image' : 'a video'}`}</span>
+                      <Label htmlFor="media" className="cursor-pointer flex flex-col items-center justify-center space-y-2">
+                        {shareType === 'IMAGE' ? <Camera className="w-8 h-8" /> : <Video className="w-8 h-8" />}
+                        <span>Drag and drop or click to select {shareType === 'IMAGE' ? 'images' : 'videos'}</span>
                       </Label>
                     </div>
+                    {media.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {media.map((file, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 bg-gray-100 rounded">
+                            <span>{file.name}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeMedia(index)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col space-y-1.5">
                     <Label htmlFor="mediaTitle" className="text-lg font-semibold">{shareType === 'IMAGE' ? 'Image' : 'Video'} Title</Label>
@@ -250,6 +307,7 @@ export default function LinkedInShareForm() {
                         placeholder={`Enter an attention-grabbing ${shareType === 'IMAGE' ? 'image' : 'video'} title`}
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
+                        className={theme === 'dark' ? 'bg-gray-700 text-white' : ''}
                       />
                       <Button
                         type="button"
@@ -271,7 +329,7 @@ export default function LinkedInShareForm() {
                         placeholder={`Describe your ${shareType === 'IMAGE' ? 'image' : 'video'} and why it's relevant to your audience`}
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="pr-10 min-h-[80px]"
+                        className={`pr-10 min-h-[80px] ${theme === 'dark' ? 'bg-gray-700 text-white' : ''}`}
                       />
                       <Button
                         type="button"

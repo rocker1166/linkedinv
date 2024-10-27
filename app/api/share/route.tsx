@@ -12,7 +12,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const url = formData.get('url') as string;
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
-    const media = formData.get('media') as File | null;
 
     const accessToken = process.env.LINKEDIN_ACCESS_TOKEN;
     const personId = process.env.LINKEDIN_PERSON_ID;
@@ -21,48 +20,55 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'LinkedIn credentials not configured' }, { status: 500 });
     }
 
-    let mediaAsset;
-    if ((shareType === 'IMAGE' || shareType === 'VIDEO') && media) {
-      // Register upload
-      const registerResponse = await fetch(LINKEDIN_ASSET_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'X-Restli-Protocol-Version': '2.0.0',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          registerUploadRequest: {
-            recipes: [`urn:li:digitalmediaRecipe:feedshare-${shareType.toLowerCase()}`],
-            owner: `urn:li:person:${personId}`,
-            serviceRelationships: [{
-              relationshipType: 'OWNER',
-              identifier: 'urn:li:userGeneratedContent'
-            }],
+    const mediaAssets = [];
+    if (shareType === 'IMAGE' || shareType === 'VIDEO') {
+      const mediaFiles = [];
+      for (let i = 0; formData.get(`media${i}`); i++) {
+        mediaFiles.push(formData.get(`media${i}`) as File);
+      }
+
+      for (const media of mediaFiles) {
+        // Register upload
+        const registerResponse = await fetch(LINKEDIN_ASSET_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'X-Restli-Protocol-Version': '2.0.0',
+            'Content-Type': 'application/json',
           },
-        }),
-      });
+          body: JSON.stringify({
+            registerUploadRequest: {
+              recipes: [`urn:li:digitalmediaRecipe:feedshare-${shareType.toLowerCase()}`],
+              owner: `urn:li:person:${personId}`,
+              serviceRelationships: [{
+                relationshipType: 'OWNER',
+                identifier: 'urn:li:userGeneratedContent'
+              }],
+            },
+          }),
+        });
 
-      if (!registerResponse.ok) {
-        return NextResponse.json({ error: 'Failed to register media upload' }, { status: registerResponse.status });
+        if (!registerResponse.ok) {
+          return NextResponse.json({ error: 'Failed to register media upload' }, { status: registerResponse.status });
+        }
+
+        const { value: { asset, uploadMechanism } } = await registerResponse.json();
+        
+        // Upload media
+        const uploadResponse = await fetch(uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: media,
+        });
+
+        if (!uploadResponse.ok) {
+          return NextResponse.json({ error: 'Failed to upload media' }, { status: uploadResponse.status });
+        }
+
+        mediaAssets.push(asset);
       }
-
-      const { value: { asset, uploadMechanism } } = await registerResponse.json();
-      
-      // Upload media
-      const uploadResponse = await fetch(uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: media,
-      });
-
-      if (!uploadResponse.ok) {
-        return NextResponse.json({ error: 'Failed to upload media' }, { status: uploadResponse.status });
-      }
-
-      mediaAsset = asset;
     }
 
     const shareData: any = {
@@ -88,13 +94,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         title: { text: title },
         description: { text: description },
       }];
-    } else if ((shareType === 'IMAGE' || shareType === 'VIDEO') && mediaAsset) {
-      shareData.specificContent['com.linkedin.ugc.ShareContent'].media = [{
+    } else if ((shareType === 'IMAGE' || shareType === 'VIDEO') && mediaAssets.length > 0) {
+      shareData.specificContent['com.linkedin.ugc.ShareContent'].media = mediaAssets.map(asset => ({
         status: 'READY',
-        media: mediaAsset,
+        media: asset,
         title: { text: title },
         description: { text: description },
-      }];
+      }));
     }
 
     const response = await fetch(LINKEDIN_API_URL, {

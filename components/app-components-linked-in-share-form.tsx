@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client'
 
 import { useState } from 'react'
@@ -12,7 +11,7 @@ import { Camera } from 'lucide-react'
 
 type ShareType = 'TEXT' | 'ARTICLE' | 'IMAGE'
 
-export default function LinkedInShareForm() {
+export function LinkedInShareFormComponent() {
   const [shareType, setShareType] = useState<ShareType>('TEXT')
   const [text, setText] = useState('')
   const [url, setUrl] = useState('')
@@ -42,7 +41,7 @@ export default function LinkedInShareForm() {
     }
 
     try {
-      const response = await fetch('/api/share', {
+      const response = await fetch('/api/linkedin/share', {
         method: 'POST',
         body: formData,
       })
@@ -59,6 +58,7 @@ export default function LinkedInShareForm() {
       } else {
         setMessage(`Error: ${data.error}`)
       }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
       setMessage('An error occurred while sharing')
     } finally {

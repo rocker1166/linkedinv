@@ -12,12 +12,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const url = formData.get('url') as string;
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
-
-    const accessToken = process.env.LINKEDIN_ACCESS_TOKEN;
-    const personId = process.env.LINKEDIN_PERSON_ID;
+    const accessToken = formData.get('accessToken') ;
+    const personId = formData.get('personId') ;
 
     if (!accessToken || !personId) {
-      return NextResponse.json({ error: 'LinkedIn credentials not configured' }, { status: 500 });
+      return NextResponse.json({ error: 'LinkedIn credentials not provided' }, { status: 400 });
     }
 
     const mediaAssets = [];

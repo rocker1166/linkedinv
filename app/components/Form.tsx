@@ -25,6 +25,11 @@ import { useTheme } from 'next-themes'
 
 type ShareType = 'TEXT' | 'ARTICLE' | 'IMAGE' | 'VIDEO'
 
+interface LinkedInData {
+  linkedinAccessToken: string;
+  sub: string;
+}
+
 export default function LinkedInShareForm() {
   const [shareType, setShareType] = useState<ShareType>('TEXT')
   const [text, setText] = useState('')
@@ -38,7 +43,12 @@ export default function LinkedInShareForm() {
   const [currentField, setCurrentField] = useState('')
   const [isRewriting, setIsRewriting] = useState(false)
   const { theme, setTheme } = useTheme()
-
+  
+  //for auth
+  const [auth, setAuth] = useState<LinkedInData | null>(null);
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  
   const { messages, input, handleInputChange, handleSubmit: handleChatSubmit } = useChat({
     api: '/api/chat',
   })
@@ -52,6 +62,36 @@ export default function LinkedInShareForm() {
     }
   }, [message])
 
+//fetch accesstoken and person id 
+
+ useEffect(() => {
+    const fetchLinkedInData = async () => {
+      try {
+        const response = await fetch('/api/getsub');
+        if (!response.ok) {
+          throw new Error('Failed to fetch LinkedIn data');
+        }
+        
+        const fullData = await response.json();
+        
+        // Extract only the needed fields
+        setAuth({
+          linkedinAccessToken: fullData.linkedinAccessToken,
+          sub: fullData.linkedinUserInfo.sub
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLinkedInData();
+  }, [auth]);
+
+
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSharing(true)
@@ -60,6 +100,8 @@ export default function LinkedInShareForm() {
     const formData = new FormData()
     formData.append('shareType', shareType)
     formData.append('text', text)
+    formData.append('accessToken', auth?.linkedinAccessToken ?? '');
+  formData.append('personId', auth?.sub ?? '');
 
     if (shareType === 'ARTICLE') {
       formData.append('url', url)

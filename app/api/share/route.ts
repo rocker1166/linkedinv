@@ -12,8 +12,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const url = formData.get('url') as string;
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
-    const accessToken = formData.get('accessToken') ;
-    const personId = formData.get('personId') ;
+    const accessToken = formData.get('accessToken');
+    const personId = formData.get('personId');
 
     if (!accessToken || !personId) {
       return NextResponse.json({ error: 'LinkedIn credentials not provided' }, { status: 400 });
@@ -27,7 +27,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       for (const media of mediaFiles) {
-        // Register upload
         const registerResponse = await fetch(LINKEDIN_ASSET_URL, {
           method: 'POST',
           headers: {
@@ -53,7 +52,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
         const { value: { asset, uploadMechanism } } = await registerResponse.json();
         
-        // Upload media
         const uploadResponse = await fetch(uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl, {
           method: 'POST',
           headers: {

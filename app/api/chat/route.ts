@@ -2,7 +2,6 @@ import { google } from '@ai-sdk/google';
 import { streamText, convertToCoreMessages } from 'ai';
 import { NextRequest } from 'next/server';
 
-// Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {

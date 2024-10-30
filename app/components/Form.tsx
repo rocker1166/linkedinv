@@ -189,17 +189,11 @@ export default function LinkedInShareForm() {
   }
 
   return (
-    <div className={`flex justify-center items-center min-h-screen p-4 ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-100'}`}>
-      <Card className={`w-full max-w-2xl ${theme === 'dark' ? 'bg-gray-800 text-white' : 'bg-white'}`}>
+    <div >
+      <Card className={`w-full max-w-2xl`}>
         <CardHeader className="flex flex-row justify-between items-center">
           <CardTitle className="text-2xl font-bold">Share on LinkedIn</CardTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          >
-            {theme === 'dark' ? '🌞' : '🌙'}
-          </Button>
+         
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent>
@@ -425,3 +419,11 @@ export default function LinkedInShareForm() {
     </div>
   )
 }
+
+
+
+
+
+
+
+
